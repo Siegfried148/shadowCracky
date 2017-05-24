@@ -2,21 +2,22 @@
 # -*- coding: utf-8 -*-
 #Castro Rendón Virgilio
 #Usage: ./shadowCracky.py -d dictionary.txt -s shadow.txt -o prueba -v 1 -t 100
+#https://github.com/Siegfried148/shadowCracky
+
 from crypt import crypt
 from os.path import isfile
+from math import ceil
 from threading import Thread
 import sys
 import optparse
-threads = []
 results = []
 cracked = False
 
 
 #Se hereda y sobreescribe la clase myThread
 class myThread(Thread):
-	def __init__(self, id, user, passwords, salt, hash):
+	def __init__(self, user, salt, hash, passwords):
 		Thread.__init__(self)
-		self.id = id
 		self.user = user
 		self.passwords = passwords
 		self.salt = salt
@@ -28,7 +29,7 @@ class myThread(Thread):
 			if cracked: break
 			w = word.strip('\n')
 			if verbose in ['2']: print '\tThread %s: (%s -> %s)?'  % (self.id, self.user, w)
-			crack(self.id, self.user, self.salt, self.hash, w)
+			crack(self.user, self.salt, self.hash, w)
 
 
 #Si hay un error, avisa y termina ejecución
@@ -74,14 +75,14 @@ def parseDictionary(dict, verbose):
 #Genera los hilos necesarios y manda a llamar la ejecución sobre cada hilo
 def crackShadow(shadow_regs, chunked_dict):
 	for r in shadow_regs:
-		i = 0
+		threads = []
 		for t in range(len(chunked_dict)): #Sobre cada palabra de su pedazo de diccionario
 			passwd = r[1].split('$')
 			salt = '$%s$%s' % (passwd[1],passwd[2])
-			thread = myThread(i, r[0], chunked_dict[t], salt, r[1]) #Hace un hilo nuevo
+			thread = myThread(r[0], salt, r[1], chunked_dict[t]) #Hace un hilo nuevo
+#			thread = Thread(target=crack, args=(r[0], salt, r[1], chunked_dict[t])) #Hace un hilo nuevo
 			thread.start()
 			threads.append(thread)
-			i += 1
 		for t in threads: #Espera a que terminen los demás hilos
 			t.join()
 		global cracked
@@ -89,11 +90,15 @@ def crackShadow(shadow_regs, chunked_dict):
 
 
 #Obtiene el hash y compara, agrega resultados exitosos y avisa que ya lo encontró
-def crack(id, user, salt, hash, word):
+def crack(user, salt, hash, password):
 	global cracked
-	if crypt(word, salt) == hash:
-		print "\t¡¡GREAT!!\tUSER: %s\tPASS: %s" % (user, word)
-		results.append([user, word])
+#	for word in passwords:
+#	if cracked: break
+#	w = word.strip('\n')
+#	if verbose in ['2']: print '\t\t(%s -> %s)?'  % (user, w)
+	if crypt(password, salt) == hash:
+		print "\t¡¡GREAT!!\tUSER: %s\tPASS: %s" % (user, password)
+		results.append([user, password])
 		cracked = True
 
 
@@ -130,10 +135,10 @@ if __name__ == '__main__':
 	passwords = parseDictionary(dict, verbose)
 	if len(passwords) < threadNum:
 		threadNum = len(passwords)	#si no hay tantas contraseñas, no hacer tantos hilos
-	n = int(len(passwords) / threadNum)	#n es el número de pedazos en que se separará la lista de contraseñas
+	n = int(ceil(len(passwords) / float(threadNum)))	#n es el número de elementos que tendrá cada sublista de contraseñas
 	chunked_dictionary = [passwords[i:i+n] for i in xrange(0, len(passwords), n)]	 #Separa el diccionario en pedazos para pasarlos a los hilos
 	if verbose in ['1','2']:
-		print '\tUSING %s THREADS\n' % threadNum
+		print '\tUSING %s THREADS\n' % len(chunked_dictionary)
 	try:
 		crackShadow(shadow_regs, chunked_dictionary)
 		writeReport(outF)
