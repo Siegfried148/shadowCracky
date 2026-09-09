@@ -1,3 +1,5 @@
+# ARCHIVED: Old repository from my student days at UNAM-CERT. 
+---
 # shadowCracky
 Crack /etc/passwd with python
 
